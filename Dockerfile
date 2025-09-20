@@ -56,5 +56,5 @@ USER nodejs
 # Expose the port
 EXPOSE $PORT
 
-# Start the application with Git authentication setup
-CMD ["/usr/local/bin/setup-git-auth.sh", "npm", "run", "start"]
+# Start both the healthcheck server and the main application
+CMD ["/bin/bash", "-c", "/usr/local/bin/setup-git-auth.sh node healthcheck.js & npm run start"]
