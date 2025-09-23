@@ -9,17 +9,22 @@
       ]
     },
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "ghcr.io/github/github-mcp-server"
+      ],
       "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "dynamically_provided_by_github_app"
       }
     },
     "git": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-git", "/usercontent"],
       "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "dynamically_provided_by_github_app"
       }
     },
     "postgres": {

@@ -123,8 +123,9 @@ export class SlackHandler {
 
     // Check if this is an MCP info command (only if there's text)
     if (text && this.isMcpInfoCommand(text)) {
+      const mcpInfo = await this.mcpManager.formatMcpInfo();
       await say({
-        text: this.mcpManager.formatMcpInfo(),
+        text: mcpInfo,
         thread_ts: thread_ts || ts,
       });
       return;
@@ -134,8 +135,9 @@ export class SlackHandler {
     if (text && this.isMcpReloadCommand(text)) {
       const reloaded = this.mcpManager.reloadConfiguration();
       if (reloaded) {
+        const mcpInfo = await this.mcpManager.formatMcpInfo();
         await say({
-          text: `✅ MCP configuration reloaded successfully.\n\n${this.mcpManager.formatMcpInfo()}`,
+          text: `✅ MCP configuration reloaded successfully.\n\n${mcpInfo}`,
           thread_ts: thread_ts || ts,
         });
       } else {

@@ -4,6 +4,7 @@ import { ClaudeHandler } from './claude-handler';
 import { SlackHandler } from './slack-handler';
 import { McpManager } from './mcp-manager';
 import { Logger } from './logger';
+import { discoverInstallations, isGitHubAppConfigured } from './github-auth.js';
 
 const logger = new Logger('Main');
 
@@ -29,6 +30,11 @@ async function start() {
     // Initialize MCP manager
     const mcpManager = new McpManager();
     const mcpConfig = mcpManager.loadConfiguration();
+
+    // Discover GitHub App installations if configured
+    if (isGitHubAppConfigured()) {
+      await discoverInstallations();
+    }
     
     // Initialize handlers
     const claudeHandler = new ClaudeHandler(mcpManager);

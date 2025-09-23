@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # Install system dependencies including bash and common shell utilities
-RUN apk add --no-cache git curl bash coreutils findutils grep sed github-cli
+RUN apk add --no-cache git curl bash coreutils findutils grep sed github-cli openssl
 
 # Install ripgrep (required by Claude Code SDK)
 RUN curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz && \
@@ -21,6 +21,10 @@ RUN npm ci
 
 # Install tsx globally
 RUN npm install -g tsx
+
+# Install MCP servers globally for GitHub app integration
+RUN npm install -g @modelcontextprotocol/server-filesystem@latest
+RUN npm install -g @modelcontextprotocol/server-github@latest  
 
 # Copy source code
 COPY . .
@@ -57,4 +61,4 @@ USER nodejs
 EXPOSE $PORT
 
 # Start both the healthcheck server and the main application
-CMD ["/bin/bash", "-c", "/usr/local/bin/setup-git-auth.sh node healthcheck.js & npm run start"]
+CMD ["/bin/bash", "-c", "source /usr/local/bin/setup-git-auth.sh && node healthcheck.js & npm run start"]

@@ -61,7 +61,7 @@ export class ClaudeHandler {
     }
 
     // Add MCP server configuration if available
-    const mcpServers = this.mcpManager.getServerConfiguration();
+    const mcpServers = await this.mcpManager.getServerConfiguration();
     
     // Add permission prompt server if we have Slack context
     if (slackContext) {

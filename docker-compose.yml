@@ -17,6 +17,10 @@ services:
       - DEBUG=${DEBUG:-false}
       - CLAUDE_CODE_USE_BEDROCK=${CLAUDE_CODE_USE_BEDROCK:-0}
       - CLAUDE_CODE_USE_VERTEX=${CLAUDE_CODE_USE_VERTEX:-0}
-      # GitHub Token for MCP
+      # GitHub App Configuration for MCP
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY=${GITHUB_PRIVATE_KEY}
+      - GITHUB_INSTALLATION_ID=${GITHUB_INSTALLATION_ID}
+      # Legacy GitHub Token (fallback)
       - GITHUB_TOKEN=${GITHUB_TOKEN}
     restart: unless-stopped
