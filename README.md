@@ -73,10 +73,20 @@ SLACK_SIGNING_SECRET=your-signing-secret
 
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
-
 # ANTHROPIC_API_KEY=your-anthropic-api-key
 # CLAUDE_CODE_USE_BEDROCK=1
 # CLAUDE_CODE_USE_VERTEX=1
+
+# GitHub App Integration (Optional - Recommended for GitHub access)
+# GITHUB_APP_ID=123456
+# GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nYour private key content here...\n-----END RSA PRIVATE KEY-----"
+# GITHUB_INSTALLATION_ID=12345678
+
+# GitHub Token Integration (Optional - Legacy fallback)
+# GITHUB_TOKEN=ghp_your_personal_access_token
+
+# Working Directory Configuration (Optional)
+# BASE_DIRECTORY=/Users/username/Code/
 ```
 
 ### 5. Run the Bot
@@ -227,9 +237,90 @@ All MCP tools are automatically allowed and follow the pattern: `mcp__serverName
 
 ### GitHub Integration
 
-The bot supports GitHub integration through the MCP GitHub server using a personal access token. This provides access to repositories, pull request management, and code analysis through Claude's MCP tools.
+The bot supports GitHub integration through the MCP GitHub server using **GitHub Apps** (recommended) or personal access tokens (legacy). This provides access to repositories, pull request management, and code analysis through Claude's MCP tools.
 
-#### Setting up GitHub Integration
+#### Setting up GitHub Integration with GitHub Apps (Recommended)
+
+GitHub Apps provide better security and granular permissions compared to personal access tokens. They also provide higher rate limits and institutional identity.
+
+1. **Create a GitHub App:**
+
+   **Step-by-step instructions:**
+   
+   a. **Navigate to GitHub Settings:**
+      - Go to [github.com](https://github.com) and sign in
+      - Click your profile picture in the top right corner
+      - Select "Settings" from the dropdown menu
+   
+   b. **Access Developer Settings:**
+      - In the left sidebar, scroll down and click "Developer settings"
+      - Click "GitHub Apps"
+      - Click "New GitHub App"
+   
+   c. **Configure the GitHub App:**
+      - **GitHub App name**: "Claude Code Slack Bot" (or your preferred name)
+      - **Homepage URL**: Your organization's website or the repository URL
+      - **Webhook URL**: Leave blank (not used for this integration)
+      - **Webhook secret**: Leave blank
+      - **Permissions**: Select the following repository permissions:
+        - ✅ `Contents` - Read & Write (for reading and modifying files)
+        - ✅ `Issues` - Read & Write (for issue management)
+        - ✅ `Pull requests` - Read & Write (for PR management)
+        - ✅ `Metadata` - Read (for basic repository information)
+        - ✅ `Actions` - Read (optional, for viewing CI/CD status)
+      - **Organization permissions** (optional):
+        - ✅ `Members` - Read (for team information)
+      - **User permissions**: None required
+      - **Subscribe to events**: None required (we don't use webhooks)
+      - **Where can this GitHub App be installed?**: Choose based on your needs
+        - "Only on this account" for personal use
+        - "Any account" if you plan to share the app
+   
+   d. **Create the App:**
+      - Click "Create GitHub App"
+      - You'll be redirected to the app's settings page
+   
+   e. **Generate Private Key:**
+      - Scroll down to "Private keys" section
+      - Click "Generate a private key"
+      - Download the `.pem` file and store it securely
+   
+   f. **Note the App ID:**
+      - At the top of the app settings page, note the "App ID" (e.g., 123456)
+
+2. **Install the GitHub App:**
+
+   a. **Install on Repositories:**
+      - Go to the "Install App" tab in your GitHub App settings
+      - Click "Install" next to your account/organization
+      - Choose "All repositories" or "Selected repositories" based on your needs
+      - Complete the installation
+   
+   b. **Note the Installation ID:**
+      - After installation, you'll see the installation URL
+      - The Installation ID is in the URL: `https://github.com/settings/installations/12345678`
+      - Note this number (e.g., 12345678)
+
+3. **Configure Environment Variables:**
+   ```env
+   # GitHub App Configuration (Recommended)
+   GITHUB_APP_ID=123456
+   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----
+   MIIEpAIBAAKCAQEA...
+   (your private key content here)
+   ...
+   -----END RSA PRIVATE KEY-----"
+   GITHUB_INSTALLATION_ID=12345678
+   ```
+
+   **Important Notes:**
+   - The private key should include the full PEM format with line breaks
+   - Store the private key securely and never commit it to version control
+   - The bot will automatically discover installations if INSTALLATION_ID is not set
+
+#### Legacy Setup with Personal Access Tokens (Fallback)
+
+If you prefer or need to use personal access tokens instead of GitHub Apps:
 
 1. **Create a Personal Access Token:**
    
@@ -280,16 +371,28 @@ The bot supports GitHub integration through the MCP GitHub server using a person
 
 2. **Configure Environment Variables:**
    ```env
-   # GitHub Token for MCP
+   # GitHub Token for MCP (Legacy fallback)
    GITHUB_TOKEN=ghp_your_personal_access_token
    ```
+
+#### Authentication Priority
+
+The bot will automatically use GitHub App authentication when configured, and fall back to personal access tokens if GitHub App settings are not available.
+
+#### Advantages of GitHub Apps over Personal Tokens
+- **Better Security**: Apps have granular permissions instead of broad user-level access
+- **Institutional Identity**: Actions appear as the app, not a personal user
+- **No User Dependency**: Doesn't depend on a specific user's account remaining active
+- **Audit Trail**: Better tracking of automated actions
+- **Rate Limits**: Higher rate limits for API requests
+- **Revocable**: Easy to revoke access without affecting user's personal tokens
 
 3. **Configure MCP Server:**
    The Docker container includes a pre-configured `mcp-servers.json` file that automatically sets up:
    - **Filesystem server**: Provides access to the `/usercontent` directory
-   - **GitHub server**: Activated when `GITHUB_TOKEN` environment variable is provided
+   - **GitHub server**: Uses GitHub App authentication when configured, or falls back to `GITHUB_TOKEN`
    
-   No additional MCP configuration is needed for Docker deployment.
+   No additional MCP configuration is needed for Docker deployment. The bot will automatically use GitHub App authentication when available.
 
 ### Using AWS Bedrock
 Set these environment variables:

@@ -16,6 +16,12 @@ export const config = {
     useVertex: process.env.CLAUDE_CODE_USE_VERTEX === '1',
   },
   baseDirectory: process.env.BASE_DIRECTORY || '',
+  github: {
+    appId: process.env.GITHUB_APP_ID || '',
+    privateKey: process.env.GITHUB_PRIVATE_KEY || '',
+    installationId: process.env.GITHUB_INSTALLATION_ID || '',
+    token: process.env.GITHUB_TOKEN || '',
+  },
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 };
 
