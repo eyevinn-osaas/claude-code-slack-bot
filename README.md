@@ -73,10 +73,20 @@ SLACK_SIGNING_SECRET=your-signing-secret
 
 # Claude Code Configuration
 # This is only needed if you don't use a Claude subscription
-
 # ANTHROPIC_API_KEY=your-anthropic-api-key
 # CLAUDE_CODE_USE_BEDROCK=1
 # CLAUDE_CODE_USE_VERTEX=1
+
+# GitHub App Integration (Optional - Recommended for GitHub access)
+# GITHUB_APP_ID=123456
+# GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nYour private key content here...\n-----END RSA PRIVATE KEY-----"
+# GITHUB_INSTALLATION_ID=12345678
+
+# GitHub Token Integration (Optional - Legacy fallback)
+# GITHUB_TOKEN=ghp_your_personal_access_token
+
+# Working Directory Configuration (Optional)
+# BASE_DIRECTORY=/Users/username/Code/
 ```
 
 ### 5. Run the Bot
