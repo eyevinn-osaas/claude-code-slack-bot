@@ -284,6 +284,33 @@ The project includes a pre-configured `mcp-servers.json` file that automatically
 - Commit history and diff viewing
 - Organization and team management (with proper permissions)
 
+#### Automatic Token Refresh
+
+The bot automatically handles GitHub App token refresh to ensure continuous operation:
+
+**Features:**
+- **Automatic Refresh**: Tokens are refreshed 5 minutes before expiry or at 50% of their lifetime (whichever is shorter)
+- **Background Processing**: Token refresh happens in the background without interrupting operations
+- **Git Credentials Update**: Automatically updates git credentials and environment variables when tokens are refreshed
+- **Retry Logic**: If token refresh fails, the system will retry every 2 minutes until successful
+- **Graceful Degradation**: Continues to use existing tokens during refresh attempts
+
+**Implementation Details:**
+- Tokens are cached until expiry to minimize API calls
+- Uses Node.js timers to schedule refresh operations
+- Updates both `.git-credentials` file and git global configuration
+- Exports `GITHUB_TOKEN` environment variable for child processes
+- Automatic cleanup on application shutdown
+
+**Monitoring:**
+The bot logs all token refresh activities:
+```
+GitHub App token refresh scheduled for 2024-01-01T12:00:00.000Z (in 55 minutes)
+Background refresh of GitHub App installation token starting
+GitHub App installation token refreshed successfully in background
+Git credentials updated successfully with refreshed GitHub App token
+```
+
 #### Git CLI Authentication
 
 The bot automatically handles GitHub authentication for Git CLI operations performed by Claude Code. When Claude executes Git commands that require GitHub access (push, pull, clone from private repositories), the bot provides the appropriate authentication:
