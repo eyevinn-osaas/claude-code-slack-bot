@@ -1,4 +1,8 @@
 import jwt from 'jsonwebtoken';
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { config } from './config.js';
 import { Logger } from './logger.js';
 
@@ -16,6 +20,7 @@ export class GitHubAppAuth {
     token: string;
     expiresAt: Date;
   } | null = null;
+  private refreshTimer?: NodeJS.Timeout;
 
   constructor(private appConfig: GitHubAppConfig) {
     if (appConfig.installationId) {
@@ -62,6 +67,13 @@ export class GitHubAppAuth {
       };
 
       logger.info(`GitHub App installation token generated, expires at ${expiresAt.toISOString()}`);
+      
+      // Schedule automatic refresh before expiry
+      this.scheduleTokenRefresh(targetInstallationId);
+      
+      // Update git credentials with new token
+      await this.updateGitCredentials(tokenData.token);
+      
       return tokenData.token;
     } catch (error) {
       logger.error('Failed to generate GitHub App installation token:', error);
@@ -124,6 +136,143 @@ export class GitHubAppAuth {
   invalidateTokenCache(): void {
     logger.info('Invalidating GitHub App installation token cache');
     this.installationTokenCache = null;
+    this.clearRefreshTimer();
+  }
+
+  private clearRefreshTimer(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = undefined;
+      logger.debug('GitHub App token refresh timer cleared');
+    }
+  }
+
+  private scheduleTokenRefresh(installationId: number): void {
+    // Clear any existing timer
+    this.clearRefreshTimer();
+    
+    if (!this.installationTokenCache) {
+      return;
+    }
+
+    // Calculate when to refresh (5 minutes before expiry, or 50% of lifetime, whichever is shorter)
+    const now = new Date();
+    const expiresAt = this.installationTokenCache.expiresAt;
+    const totalLifetime = expiresAt.getTime() - now.getTime();
+    const refreshBuffer = Math.min(5 * 60 * 1000, totalLifetime * 0.5); // 5 minutes or 50% of lifetime
+    const refreshAt = new Date(expiresAt.getTime() - refreshBuffer);
+    const timeUntilRefresh = refreshAt.getTime() - now.getTime();
+
+    if (timeUntilRefresh <= 0) {
+      // Token expires very soon, refresh immediately
+      logger.warn('GitHub App token expires very soon, refreshing immediately');
+      this.refreshTokenInBackground(installationId);
+      return;
+    }
+
+    logger.info(`GitHub App token refresh scheduled for ${refreshAt.toISOString()} (in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes)`);
+    
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTokenInBackground(installationId);
+    }, timeUntilRefresh);
+  }
+
+  private async refreshTokenInBackground(installationId: number): Promise<void> {
+    try {
+      logger.info('Background refresh of GitHub App installation token starting');
+      
+      // Clear the cache to force a fresh token
+      const oldToken = this.installationTokenCache?.token;
+      this.installationTokenCache = null;
+      
+      // Get a new token
+      const newToken = await this.getInstallationToken(installationId);
+      
+      logger.info('GitHub App installation token refreshed successfully in background');
+      
+      // Update environment variable for child processes
+      process.env.GITHUB_TOKEN = newToken;
+      
+    } catch (error) {
+      logger.error('Failed to refresh GitHub App installation token in background:', error);
+      
+      // If refresh fails but we still have some time on the old token, schedule a retry
+      if (this.installationTokenCache && this.installationTokenCache.expiresAt > new Date()) {
+        const retryIn = 2 * 60 * 1000; // Retry in 2 minutes
+        logger.info(`Retrying token refresh in ${retryIn / 1000} seconds`);
+        this.refreshTimer = setTimeout(() => {
+          this.refreshTokenInBackground(installationId);
+        }, retryIn);
+      }
+    }
+  }
+
+  private async updateGitCredentials(token: string): Promise<void> {
+    try {
+      const homeDir = os.homedir();
+      const credentialsPath = path.join(homeDir, '.git-credentials');
+      const cleanToken = token.trim();
+      
+      // Update .git-credentials file with new token (GitHub App format)
+      const credentialEntry = `https://x-access-token:${cleanToken}@github.com`;
+      await fs.writeFile(credentialsPath, credentialEntry + '\n', { mode: 0o600 });
+      
+      // Update global Git configuration
+      await this.executeGitCommand(['config', '--global', `url.https://x-access-token:${cleanToken}@github.com/.insteadOf`, 'https://github.com/']);
+      await this.executeGitCommand(['config', '--global', 'credential.https://github.com.username', cleanToken]);
+      
+      // Update environment variable for immediate use
+      process.env.GITHUB_TOKEN = cleanToken;
+      
+      logger.info('Git credentials updated successfully with refreshed GitHub App token');
+    } catch (error) {
+      logger.error('Failed to update Git credentials:', error);
+      throw error;
+    }
+  }
+
+  private async executeGitCommand(args: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const git = spawn('git', args);
+      let stderr = '';
+      
+      git.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      git.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Git command failed with code ${code}: ${stderr}`));
+        }
+      });
+      
+      git.on('error', (error) => {
+        reject(error);
+      });
+    });
+  }
+
+  async startAutoRefresh(): Promise<void> {
+    if (!this.installationId) {
+      logger.warn('Cannot start auto-refresh: no installation ID configured');
+      return;
+    }
+
+    try {
+      // Get initial token to start the refresh cycle
+      await this.getInstallationToken(this.installationId);
+      logger.info('GitHub App auto-refresh started successfully');
+    } catch (error) {
+      logger.error('Failed to start GitHub App auto-refresh:', error);
+      throw error;
+    }
+  }
+
+  stopAutoRefresh(): void {
+    this.clearRefreshTimer();
+    logger.info('GitHub App auto-refresh stopped');
   }
 }
 
