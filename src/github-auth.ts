@@ -217,7 +217,10 @@ export class GitHubAppAuth {
       const credentialEntry = `https://x-access-token:${cleanToken}@github.com`;
       await fs.writeFile(credentialsPath, credentialEntry + '\n', { mode: 0o600 });
       
-      // Update global Git configuration
+      // Remove any existing GitHub URL rewrites to prevent duplicates
+      await this.removeExistingGitHubUrlRewrites();
+      
+      // Update global Git configuration with new token
       await this.executeGitCommand(['config', '--global', `url.https://x-access-token:${cleanToken}@github.com/.insteadOf`, 'https://github.com/']);
       await this.executeGitCommand(['config', '--global', 'credential.https://github.com.username', cleanToken]);
       
@@ -229,6 +232,61 @@ export class GitHubAppAuth {
       logger.error('Failed to update Git credentials:', error);
       throw error;
     }
+  }
+
+  private async removeExistingGitHubUrlRewrites(): Promise<void> {
+    try {
+      // Get all url.*.insteadOf config entries
+      const result = await this.executeGitCommandWithOutput(['config', '--global', '--get-regexp', '^url\\..*\\.insteadOf$', 'https://github.com/']);
+      
+      if (result.stdout.trim()) {
+        const lines = result.stdout.trim().split('\n');
+        for (const line of lines) {
+          // Extract the config key (everything before the space)
+          const configKey = line.split(' ')[0];
+          if (configKey && configKey.includes('github.com')) {
+            logger.debug(`Removing existing git config entry: ${configKey}`);
+            try {
+              await this.executeGitCommand(['config', '--global', '--unset', configKey]);
+            } catch (error) {
+              // Ignore errors when unsetting (entry might not exist)
+              logger.debug(`Failed to unset ${configKey}, continuing:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // If getting existing config fails, just continue - this is not critical
+      logger.debug('Failed to get existing git config entries, continuing:', error);
+    }
+  }
+
+  private async executeGitCommandWithOutput(args: string[]): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const git = spawn('git', args);
+      let stdout = '';
+      let stderr = '';
+      
+      git.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      git.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      git.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Git command failed with code ${code}: ${stderr}`));
+        }
+      });
+      
+      git.on('error', (error) => {
+        reject(error);
+      });
+    });
   }
 
   private async executeGitCommand(args: string[]): Promise<void> {
